@@ -152,16 +152,17 @@ def build_report_docx(
 
     # ── Extract data ──────────────────────────────────────────────────────────
     cand_m   = evaluation.get("candidate_metrics", {})
-    bot_m    = evaluation.get("bot_metrics", {})
-    sys_m    = evaluation.get("system_evaluation", {})
     flags    = evaluation.get("bias_flags", [])
-    recs     = evaluation.get("recommendations", [])
     shrm     = evaluation.get("shrm_compliance_summary", {})
     overall  = evaluation.get("overall_analysis", "")
+    sess_stats = evaluation.get("session_stats", {})
 
     cand_score = cand_m.get("overall_score", 0)
-    bot_score  = bot_m.get("overall_score",  0)
-    sys_score  = sys_m.get("overall_system_score", 0)
+    
+    # Calculate questions answered (excluding greetings and unnecessary questions)
+    total_qs = sess_stats.get("total_questions", session.question_count)
+    skipped = sess_stats.get("skipped_count", 0)
+    questions_answered = total_qs - skipped
 
     screening  = candidate.screening_result or {}
     resume     = candidate.extracted_resume_json or {}
@@ -226,30 +227,39 @@ def build_report_docx(
     lcell(f"Session ID:       #{session.id}")
     lcell(f"Date:             {datetime.now().strftime('%d %b %Y, %H:%M')}")
     lcell(f"Questions Asked:  {session.question_count} / {session.max_questions}")
+    lcell(f"Questions Answered: {questions_answered} / {total_qs}")
 
-    # Right cell — score summary
+    # Right cell — score summary (candidate only)
     for para in right.paragraphs:
         para.clear()
-    def rcell(label, score):
-        p = right.add_paragraph()
-        p.paragraph_format.space_before = Pt(0)
-        p.paragraph_format.space_after  = Pt(2)
-        r1 = p.add_run(f"{label:<22}")
-        r1.font.size = Pt(9)
-        r1.font.bold = True
-        r1.font.color.rgb = C_DARK
-        r2 = p.add_run(f"{_mini_bar(score)}  {score}/100")
-        r2.font.size = Pt(9)
-        r2.font.name = "Courier New"
-        r2.font.color.rgb = _score_color(score)
-
-    rcell("Candidate Score", cand_score)
-    rcell("AI Interviewer",  bot_score)
-    rcell("System Score",    sys_score)
+    
+    # Candidate Score with bar
     p = right.add_paragraph()
-    p.paragraph_format.space_before = Pt(3)
-    r = p.add_run(f"SHRM Verdict:  {shrm.get('overall_shrm_verdict', 'N/A')}")
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after  = Pt(2)
+    r1 = p.add_run(f"{'Candidate Score':<22}")
+    r1.font.size = Pt(9)
+    r1.font.bold = True
+    r1.font.color.rgb = C_DARK
+    r2 = p.add_run(f"{_mini_bar(cand_score)}  {cand_score}/100")
+    r2.font.size = Pt(9)
+    r2.font.name = "Courier New"
+    r2.font.color.rgb = _score_color(cand_score)
+    
+    # SHRM Summary
+    p = right.add_paragraph()
+    p.paragraph_format.space_before = Pt(8)
+    p.paragraph_format.space_after = Pt(2)
+    r = p.add_run("SHRM Compliance Summary")
     r.font.size = Pt(9)
+    r.font.bold = True
+    r.font.color.rgb = C_DARK
+    
+    # SHRM Verdict
+    p = right.add_paragraph()
+    p.paragraph_format.space_before = Pt(2)
+    r = p.add_run(f"Verdict: {shrm.get('overall_shrm_verdict', 'N/A')}")
+    r.font.size = Pt(8)
     r.font.bold = True
     shrm_v = shrm.get("overall_shrm_verdict", "")
     r.font.color.rgb = C_GREEN if "Fully" in shrm_v else (C_AMBER if "Partially" in shrm_v else C_RED)
@@ -304,26 +314,18 @@ def build_report_docx(
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # EVALUATION METRICS SUMMARY  (compact bullets)
+    # CANDIDATE PERFORMANCE METRICS  (compact bullets)
     # ══════════════════════════════════════════════════════════════════════════
-    _section_title(doc, "Evaluation Metrics Summary")
+    _section_title(doc, "Candidate Performance Metrics")
 
     metrics_bullets = [
-        (f"Candidate — Communication {cand_m.get('communication_clarity_score',0)}/100  |  "
-         f"Technical {cand_m.get('technical_competency_score',0)}/100  |  "
-         f"Confidence {cand_m.get('confidence_conviction_score',0)}/100  |  "
-         f"Relevance {cand_m.get('relevance_score',0)}/100  |  "
-         f"Engagement {cand_m.get('engagement_depth_score',0)}/100",
+        (f"Communication Clarity: {cand_m.get('communication_clarity_score',0)}/100  |  "
+         f"Technical Competency: {cand_m.get('technical_competency_score',0)}/100  |  "
+         f"Confidence & Conviction: {cand_m.get('confidence_conviction_score',0)}/100",
          C_DARK),
-        (f"AI Interviewer — Question Quality {bot_m.get('question_quality_score',0)}/100  |  "
-         f"Topic Coverage {bot_m.get('topic_coverage_score',0)}/100  |  "
-         f"Adaptability {bot_m.get('adaptability_score',0)}/100  |  "
-         f"Bias Risk {bot_m.get('bias_risk_score',0)}/100 (lower=better)",
-         C_DARK),
-        (f"System — Screening Accuracy {sys_m.get('screening_accuracy_score',0)}/100  |  "
-         f"Interview Quality {sys_m.get('interview_quality_score',0)}/100  |  "
-         f"Fairness {sys_m.get('fairness_transparency_score',0)}/100  |  "
-         f"Candidate Experience {sys_m.get('candidate_experience_score',0)}/100",
+        (f"Relevance & Focus: {cand_m.get('relevance_score',0)}/100  |  "
+         f"Engagement & Depth: {cand_m.get('engagement_depth_score',0)}/100  |  "
+         f"Questions Answered: {questions_answered}/{total_qs}",
          C_DARK),
         (f"Bias Flags: {len(flags)} detected" +
          (f"  [{', '.join(f['flag_type'] for f in flags[:3])}]" if flags else "  — None"),
@@ -346,8 +348,12 @@ def build_report_docx(
     summary_points = sentences[:3] if len(sentences) >= 3 else sentences
     # Pad with generated bullet if fewer than 3
     cand_sum = cand_m.get("summary", "")
-    bot_sum  = bot_m.get("summary", "")
-    fallbacks = [cand_sum, bot_sum, f"Verdict: {verdict}. Candidate score {cand_score}/100."]
+    shrm_verdict = shrm.get("overall_shrm_verdict", "")
+    fallbacks = [
+        cand_sum, 
+        f"SHRM Compliance: {shrm_verdict}" if shrm_verdict else "",
+        f"Hiring Verdict: {verdict}. Candidate score {cand_score}/100."
+    ]
     i = 0
     while len(summary_points) < 3 and i < len(fallbacks):
         if fallbacks[i] and fallbacks[i] not in summary_points:
@@ -358,14 +364,6 @@ def build_report_docx(
         _bullet(doc, pt.strip(), size=8)
 
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # RECOMMENDATIONS
-    # ══════════════════════════════════════════════════════════════════════════
-    if recs:
-        _section_title(doc, "Recommendations")
-        for rec in recs[:4]:          # cap at 4 to stay on one page
-            _bullet(doc, rec, size=8)
 
     # ══════════════════════════════════════════════════════════════════════════
     # FOOTER line
@@ -420,24 +418,7 @@ def send_report_email(report_path: Path, session: InterviewSession, evaluation: 
     )
     body = f"""Hello HR Team,
 
-The AI-powered screening interview for the following candidate has been completed and evaluated.
-
-Candidate:      {session.candidate_name}
-Session ID:     #{session.id}
-Date:           {datetime.now().strftime('%d %B %Y, %H:%M')}
-Questions:      {session.question_count} / {session.max_questions}
-
-EVALUATION SUMMARY
-------------------
-  Candidate Score:         {evaluation.get('candidate_metrics', {}).get('overall_score', 'N/A')} / 100
-  AI Interviewer Score:    {evaluation.get('bot_metrics', {}).get('overall_score', 'N/A')} / 100
-  System Score:            {evaluation.get('system_evaluation', {}).get('overall_system_score', 'N/A')} / 100
-
-VERDICT: {verdict}
-
-{evaluation.get('overall_analysis', '')}
-
-Please find the full report attached as a Word document (.docx).
+Here is the detailed report for {session.candidate_name}.
 
 ---
 HR-Bot Evaluation System (auto-generated)

@@ -48,6 +48,7 @@ class StartSessionRequest(BaseModel):
 class RespondRequest(BaseModel):
     session_id: int = Field(..., description="The active interview session ID.")
     answer: str = Field(..., min_length=1, description="The candidate's answer to the last question.")
+    candidate_id: int = Field(default=None, description="Candidate ID for authorization (required for candidates)")
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -106,8 +107,22 @@ async def respond_to_interview(
     - Returns a closing message and marks the session as `completed`.
 
     All Q&A turns are persisted to the `interview_chats` table with timestamps.
+    
+    Security: If candidate_id is provided, validates that the session belongs to that candidate.
     """
-    logger.info(f"[Route] POST /interview/respond — session_id={body.session_id} | answer_len={len(body.answer)}")
+    logger.info(f"[Route] POST /interview/respond — session_id={body.session_id} | candidate_id={body.candidate_id} | answer_len={len(body.answer)}")
+    
+    # Authorization check: if candidate_id is provided, verify session ownership
+    if body.candidate_id is not None:
+        session = db.query(InterviewSession).filter(InterviewSession.id == body.session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        if session.candidate_id != body.candidate_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="Access denied. This session does not belong to you."
+            )
+    
     result = interview_agent.respond(session_id=body.session_id, answer=body.answer, db=db)
 
     if "error" in result:
@@ -124,6 +139,7 @@ async def respond_to_interview(
 )
 async def get_interview_history(
     session_id: int,
+    candidate_id: int = Query(default=None, description="Candidate ID for authorization (required for candidates)"),
     db: Session = Depends(get_db),
 ):
     """
@@ -132,8 +148,22 @@ async def get_interview_history(
     - The candidate's answers
     - Timestamps for each turn
     - Session metadata (status, start/end times, candidate info)
+    
+    Security: If candidate_id is provided, validates that the session belongs to that candidate.
     """
-    logger.info(f"[Route] GET /interview/history/{session_id}")
+    logger.info(f"[Route] GET /interview/history/{session_id} | candidate_id={candidate_id}")
+    
+    # Authorization check: if candidate_id is provided, verify session ownership
+    if candidate_id is not None:
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        if session.candidate_id != candidate_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="Access denied. This session does not belong to you."
+            )
+    
     result = interview_agent.get_history(session_id=session_id, db=db)
 
     if "error" in result:

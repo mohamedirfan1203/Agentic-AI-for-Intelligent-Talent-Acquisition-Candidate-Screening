@@ -176,6 +176,11 @@ function switchHRTab(tab) {
     target.style.display = 'block';
     target.classList.add('active');
   }
+
+  // Auto-fetch candidate data
+  if (tab === 'candidates') {
+    loadCandidatesList();
+  }
 }
 
 // ── File Handling ─────────────────────────────────────────────────────────
@@ -410,126 +415,33 @@ function showCandidateDashboard() {
   // Set user info
   document.getElementById('cand-name-display').textContent = currentUser.name;
   document.getElementById('cand-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
-
-  // Load chat history
-  loadChatHistory();
-}
-
-async function loadChatHistory() {
-  if (!currentUser || !currentUser.candidate_id) return;
-
-  const listEl = document.getElementById('chat-history-list');
-  listEl.innerHTML = '<div class="chat-history-empty"><span>Loading...</span></div>';
-
-  try {
-    const res = await fetch(`${API_BASE}/interview/sessions?candidate_id=${currentUser.candidate_id}`);
-    const data = await res.json();
-
-    if (!res.ok || !data.sessions || data.sessions.length === 0) {
-      listEl.innerHTML = `
-        <div class="chat-history-empty">
-          <span>No chat history yet</span>
-          <p>Start an interview to see your history here.</p>
-        </div>
-      `;
-      return;
-    }
-
-    listEl.innerHTML = data.sessions.map(s => `
-      <div class="history-session-item" onclick="loadSessionHistory(${s.session_id})">
-        <div class="history-session-id">Session #${s.session_id}</div>
-        <div class="history-session-time">${s.started_at ? new Date(s.started_at).toLocaleString() : 'N/A'}</div>
-        <span class="history-session-status ${s.status === 'completed' ? 'status-completed' : 'status-active'}">
-          ${s.status}
-        </span>
-      </div>
-    `).join('');
-  } catch (err) {
-    listEl.innerHTML = `
-      <div class="chat-history-empty">
-        <span>Failed to load</span>
-        <p>${err.message}</p>
-      </div>
-    `;
-  }
-}
-
-async function loadSessionHistory(sid) {
-  // Highlight active session
-  document.querySelectorAll('.history-session-item').forEach(el => el.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-
-  try {
-    const res = await fetch(`${API_BASE}/interview/history/${sid}`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      showToast(data.detail || 'Failed to load history', 'error');
-      return;
-    }
-
-    // Display history in chat area
-    const messagesEl = document.getElementById('cand-messages');
-    const setupEl = document.getElementById('cand-setup');
-    const inputEl = document.getElementById('cand-input-area');
-
-    setupEl.style.display = 'none';
-    messagesEl.style.display = 'flex';
-    messagesEl.innerHTML = '';
-    
-    sessionId = sid;
-    if (data.status === 'completed') {
-      inputEl.style.display = 'none';
-      setCandidateInputEnabled(false, 'Interview completed.');
-    } else {
-      inputEl.style.display = 'flex';
-      setCandidateInputEnabled(true, 'Type your answer… (Enter to send)');
-    }
-
-    // Status pill
-    const statusPill = document.getElementById('cand-status-pill');
-    statusPill.textContent = data.status;
-    statusPill.className = `status-pill pill-${data.status === 'completed' ? 'completed' : 'active'}`;
-
-    document.getElementById('chat-status').textContent = `Session #${sid} — ${data.status}`;
-
-    // Render history
-    if (data.interview_history && data.interview_history.length > 0) {
-      data.interview_history.forEach(turn => {
-        // Bot question
-        addCandidateMsg('bot', turn.question, turn.question_number);
-        // User answer
-        if (turn.answer) {
-          addCandidateMsg('user', turn.answer);
-        }
-      });
-    }
-    if (data.post_interview_qna && data.post_interview_qna.length > 0) {
-      data.post_interview_qna.forEach(turn => {
-        // User question
-        addCandidateMsg('user', turn.question);
-        // Bot answer
-        if (turn.answer) {
-          addCandidateMsg('bot', turn.answer);
-        }
-      });
-    }
-  } catch (err) {
-    showToast('Error loading session: ' + err.message, 'error');
-  }
+  
+  // Automatically start a new interview session
+  autoStartInterview();
 }
 
 // ── Candidate Interview ───────────────────────────────────────────────────
 
-async function startCandidateInterview() {
+async function autoStartInterview() {
   if (!currentUser || !currentUser.candidate_id) {
     showToast('No candidate ID linked to your account.', 'error');
     return;
   }
 
-  const btn = document.getElementById('start-interview-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Starting...';
+  // Hide setup, show loading state
+  document.getElementById('cand-setup').style.display = 'none';
+  document.getElementById('cand-messages').style.display = 'flex';
+  document.getElementById('cand-input-area').style.display = 'none';
+  
+  // Show loading message
+  const messagesEl = document.getElementById('cand-messages');
+  messagesEl.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; gap: 16px;">
+      <div style="font-size: 3rem;">🤖</div>
+      <div style="font-size: 1.2rem; font-weight: 600;">Starting your interview...</div>
+      <div style="color: var(--text-2);">Please wait while we prepare your session</div>
+    </div>
+  `;
 
   try {
     const res = await fetch(`${API_BASE}/interview/start`, {
@@ -541,16 +453,16 @@ async function startCandidateInterview() {
 
     if (!res.ok) {
       showToast(data.detail || 'Failed to start interview.', 'error');
-      btn.disabled = false;
-      btn.textContent = '▶ Start Interview';
+      // Show setup screen again on error
+      document.getElementById('cand-setup').style.display = 'flex';
+      document.getElementById('cand-messages').style.display = 'none';
       return;
     }
 
     sessionId = data.session_id;
 
-    // Switch to chat view
-    document.getElementById('cand-setup').style.display = 'none';
-    document.getElementById('cand-messages').style.display = 'flex';
+    // Clear loading message and show chat
+    messagesEl.innerHTML = '';
     document.getElementById('cand-input-area').style.display = 'flex';
 
     document.getElementById('chat-status').textContent = `Session #${sessionId} — Live`;
@@ -561,14 +473,18 @@ async function startCandidateInterview() {
     // Show first message
     addCandidateMsg('bot', data.bot_message);
     setCandidateInputEnabled(true, 'Say hello to get started…');
-
-    // Refresh chat history
-    loadChatHistory();
   } catch (err) {
     showToast('Connection error: ' + err.message, 'error');
-    btn.disabled = false;
-    btn.textContent = '▶ Start Interview';
+    // Show setup screen again on error
+    document.getElementById('cand-setup').style.display = 'flex';
+    document.getElementById('cand-messages').style.display = 'none';
   }
+}
+
+async function startCandidateInterview() {
+  // This function is now just a wrapper for autoStartInterview
+  // Kept for backward compatibility if called from setup button
+  autoStartInterview();
 }
 
 async function sendCandidateAnswer() {
@@ -582,10 +498,20 @@ async function sendCandidateAnswer() {
   showCandidateTyping();
 
   try {
+    const payload = { 
+      session_id: sessionId, 
+      answer 
+    };
+    
+    // Add candidate_id for authorization if available
+    if (currentUser && currentUser.candidate_id) {
+      payload.candidate_id = currentUser.candidate_id;
+    }
+    
     const res = await fetch(`${API_BASE}/interview/respond`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, answer }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     removeCandidateTyping();
@@ -627,7 +553,6 @@ function handleCandidateBotResponse(data) {
 
   if (status === 'completed') {
     showCandidateDone(botMsg);
-    loadChatHistory();
     return;
   }
 
@@ -870,6 +795,8 @@ async function loadCandidatesList() {
       return;
     }
 
+    window.currentCandidatesList = candidates;
+
     candidates.forEach(c => {
       const tr = document.createElement('tr');
       
@@ -894,7 +821,7 @@ async function loadCandidatesList() {
         <td>${scoreMarkup}</td>
         <td><span class="status-badge ${badgeClass}">${c.status}</span></td>
         <td>
-          <button class="btn btn-sm" style="background:var(--bg-surface-3)" onclick='viewCandidateEvaluation(${JSON.stringify(c).replace(/'/g, "&apos;")})'>
+          <button class="btn btn-sm" style="background:var(--bg-surface-3)" onclick="viewCandidateEvaluation(${c.id})">
             View Eval
           </button>
         </td>
@@ -907,96 +834,161 @@ async function loadCandidatesList() {
   }
 }
 
-window.viewCandidateEvaluation = function(c) {
+window.viewCandidateEvaluation = function(cid) {
+  const c = window.currentCandidatesList.find(x => x.id === cid);
+  if (!c) return;
   const panel = document.getElementById('candidate-vis-panel');
   document.getElementById('vis-candidate-name').textContent = c.name;
   panel.style.display = 'block';
 
-  const rbtn = document.getElementById('download-report-btn');
   const rbadge = document.getElementById('vis-report-badge');
   if (c.report_path) {
-    rbtn.style.display = 'inline-block';
     rbadge.style.display = 'inline-block';
-    rbtn.onclick = () => {
-      let relativePath = c.report_path;
-      if (relativePath.includes('/tmp')) {
-        relativePath = relativePath.split('/tmp').pop(); 
-      }
-      window.open(relativePath, '_blank');
-    };
   } else {
-    rbtn.style.display = 'none';
     rbadge.style.display = 'none';
   }
 
   // Destroy previous charts to avoid canvas overlaps
-  if (botChartInstance) { botChartInstance.destroy(); }
-  if (candChartInstance) { candChartInstance.destroy(); }
+  if (typeof window.botChartInstance !== 'undefined' && window.botChartInstance) { window.botChartInstance.destroy(); }
+  if (typeof window.candChartInstance !== 'undefined' && window.candChartInstance) { window.candChartInstance.destroy(); }
+  if (typeof window.sysChartInstance !== 'undefined' && window.sysChartInstance) { window.sysChartInstance.destroy(); }
 
   if (!c.eval_result) {
     document.getElementById('botMetricsChart').style.display = 'none';
     document.getElementById('candidateMetricsChart').style.display = 'none';
+    document.getElementById('systemMetricsChart').style.display = 'none';
+    document.getElementById('vis-full-report-content').style.display = 'none';
     return;
   }
   document.getElementById('botMetricsChart').style.display = 'block';
   document.getElementById('candidateMetricsChart').style.display = 'block';
+  document.getElementById('systemMetricsChart').style.display = 'block';
+
+  // --- Display Full Report Content ---
+  document.getElementById('vis-full-report-content').style.display = 'block';
+  
+  if (c.eval_result.overall_analysis) {
+    document.getElementById('vis-overall-summary').textContent = c.eval_result.overall_analysis;
+  }
+  
+  // SHRM Summary as text
+  const shrmChecks = c.eval_result.shrm_compliance_summary;
+  const shrmSummaryEl = document.getElementById('vis-shrm-summary');
+  if (shrmChecks) {
+    const verdict = shrmChecks.overall_shrm_verdict || 'N/A';
+    let verdictColor = verdict.includes('Fully') ? 'var(--primary)' : (verdict.includes('Partially') ? '#f59e0b' : 'var(--red)');
+    let verdictIcon = verdict.includes('Fully') ? '✅' : (verdict.includes('Partially') ? '⚠️' : '❌');
+    
+    shrmSummaryEl.innerHTML = `
+      <div style="background:var(--bg-surface-3); padding:16px; border-radius:8px; border-left: 4px solid ${verdictColor}">
+        <div style="font-size: 1rem; font-weight: 600; margin-bottom: 8px; color: ${verdictColor}">
+          ${verdictIcon} SHRM Compliance: ${verdict}
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-2); line-height: 1.5;">
+          ${Object.entries(shrmChecks)
+            .filter(([key]) => key !== 'overall_shrm_verdict')
+            .map(([key, value]) => {
+              let icon = value.includes('Non-Compliant') ? '❌' : (value.includes('Partially Compliant') ? '⚠️' : '✅');
+              let niceKey = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              return `<div style="margin-bottom: 6px;"><strong>${icon} ${niceKey}:</strong> ${escapeHtml(value)}</div>`;
+            }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  const biasFlags = c.eval_result.bias_flags || [];
+  const warnEl = document.getElementById('vis-bias-warnings');
+  const warnList = document.getElementById('vis-bias-warnings-list');
+  if (biasFlags.length > 0) {
+    warnEl.style.display = 'block';
+    warnList.innerHTML = biasFlags.map(f => `<li><strong>[${f.severity.toUpperCase()}] ${f.flag_type.replace('_', ' ')}:</strong> ${escapeHtml(f.description)} ${f.question_number ? '(Q' + f.question_number + ')' : ''}</li>`).join('');
+  } else {
+    warnEl.style.display = 'none';
+    warnList.innerHTML = '';
+  }
+
+  window.currentActiveCandidate = c;
+  renderCharts();
+}
+
+let chartTypes = {
+  bot: 'bar',
+  cand: 'pie',
+  sys: 'line'
+};
+
+window.updateChartType = function(section, type) {
+  chartTypes[section] = type;
+  if (window.currentActiveCandidate) {
+    renderCharts();
+  }
+};
+
+function renderCharts() {
+  const c = window.currentActiveCandidate;
+  if (!c || !c.eval_result) return;
+  
+  if (typeof window.botChartInstance !== 'undefined' && window.botChartInstance) { window.botChartInstance.destroy(); }
+  if (typeof window.candChartInstance !== 'undefined' && window.candChartInstance) { window.candChartInstance.destroy(); }
+  if (typeof window.sysChartInstance !== 'undefined' && window.sysChartInstance) { window.sysChartInstance.destroy(); }
 
   const bm = c.eval_result.bot_metrics || {};
   const cm = c.eval_result.candidate_metrics || {};
-  const vis = c.eval_result.visualisation_data;
+  const sys = c.eval_result.system_evaluation || {};
+  const graphData = c.eval_result.graph_data;
+  
+  const commonColors = [
+    'rgba(108,99,255,0.6)', 'rgba(52,211,153,0.6)', 'rgba(245,158,11,0.6)',
+    'rgba(239,68,68,0.6)', 'rgba(59,130,246,0.6)', 'rgba(147,51,234,0.6)', 'rgba(16,185,129,0.6)'
+  ];
 
-  // Render Bot Metrics Chart
-  if (vis && vis.x_values && vis.y_values) {
-    botChartInstance = new Chart(document.getElementById('botMetricsChart'), {
-      type: 'bar',
+  function getBaseConfig(type, labels, data, defaultColor) {
+    let bgColors = defaultColor;
+    if (['pie', 'doughnut', 'polarArea'].includes(type)) {
+      bgColors = commonColors.slice(0, data.length);
+    }
+    const config = {
+      type: type,
       data: {
-        labels: vis.x_values,
+        labels: labels,
         datasets: [{
-          label: vis.y_column || 'Scores',
-          data: vis.y_values,
-          backgroundColor: 'rgba(108,99,255,0.5)',
-          borderColor: 'rgba(108,99,255,1)',
-          borderWidth: 1
+          label: 'Score',
+          data: data,
+          backgroundColor: bgColors,
+          borderColor: bgColors,
+          borderWidth: 1,
+          fill: type === 'line' ? true : false,
+          tension: 0.3
         }]
       },
-      options: { scales: { y: { beginAtZero: true, max: 100 } } }
-    });
-  } else {
-    // Fallback based on known keys
-    botChartInstance = new Chart(document.getElementById('botMetricsChart'), {
-      type: 'bar',
-      data: {
-        labels: ['Question Quality', 'Adaptability', 'Topic Coverage', 'Consistency'],
-        datasets: [{
-          label: 'Bot Score / 100',
-          data: [bm.question_quality_score, bm.adaptability_score, bm.topic_coverage_score, bm.consistency_score],
-          backgroundColor: 'rgba(108,99,255,0.5)',
-          borderColor: 'rgba(108,99,255,1)',
-          borderWidth: 1
-        }]
-      },
-      options: { scales: { y: { beginAtZero: true, max: 100 } } }
-    });
+      options: {}
+    };
+    if (['bar', 'line'].includes(type)) {
+      config.options.scales = { y: { beginAtZero: true, max: 100 } };
+    } else if (type === 'radar' || type === 'polarArea') {
+      config.options.scales = { r: { beginAtZero: true, max: 100 } };
+    }
+    return config;
   }
 
-  candChartInstance = new Chart(document.getElementById('candidateMetricsChart'), {
-    type: 'pie',
-    data: {
-      labels: ['Clarity', 'Relevance', 'Technical', 'Confidence', 'Engagement'],
-      datasets: [{
-        label: 'Candidate Score / 100',
-        data: [cm.communication_clarity_score, cm.relevance_score, cm.technical_competency_score, cm.confidence_conviction_score, cm.engagement_depth_score],
-        backgroundColor: [
-          'rgba(52,211,153,0.5)',
-          'rgba(59,130,246,0.5)',
-          'rgba(147,51,234,0.5)',
-          'rgba(245,158,11,0.5)',
-          'rgba(239,68,68,0.5)'
-        ],
-        borderWidth: 1
-      }]
-    }
-  });
+  // 1. Bot Metrics Chart
+  let bmVis = graphData ? graphData.bot_metrics : null;
+  let bLabels = bmVis && bmVis.x_values ? bmVis.x_values : ['Question Quality', 'Adaptability', 'Topic Coverage', 'Consistency'];
+  let bData = bmVis && bmVis.y_values ? bmVis.y_values : [bm.question_quality_score||0, bm.adaptability_score||0, bm.topic_coverage_score||0, bm.consistency_score||0];
+  window.botChartInstance = new Chart(document.getElementById('botMetricsChart'), getBaseConfig(chartTypes.bot, bLabels, bData, 'rgba(108,99,255,0.6)'));
+
+  // 2. Candidate Metrics Chart
+  let cmVis = graphData ? graphData.candidate_metrics : null;
+  let cLabels = cmVis && cmVis.x_values ? cmVis.x_values : ['Clarity', 'Relevance', 'Technical', 'Confidence', 'Engagement'];
+  let cData = cmVis && cmVis.y_values ? cmVis.y_values : [cm.communication_clarity_score||0, cm.relevance_score||0, cm.technical_competency_score||0, cm.confidence_conviction_score||0, cm.engagement_depth_score||0];
+  window.candChartInstance = new Chart(document.getElementById('candidateMetricsChart'), getBaseConfig(chartTypes.cand, cLabels, cData, 'rgba(52,211,153,0.6)'));
+
+  // 3. System Metrics Chart
+  let smVis = graphData ? graphData.system_evaluation : null;
+  let sLabels = smVis && smVis.x_values ? smVis.x_values : ['Screening Accuracy', 'Interview Quality', 'Fairness/Transp.', 'Cand. Experience', 'Report Quality', 'Practicality'];
+  let sData = smVis && smVis.y_values ? smVis.y_values : [sys.screening_accuracy_score||0, sys.interview_quality_score||0, sys.fairness_transparency_score||0, sys.candidate_experience_score||0, sys.report_quality_score||0, sys.practicality_score||0];
+  window.sysChartInstance = new Chart(document.getElementById('systemMetricsChart'), getBaseConfig(chartTypes.sys, sLabels, sData, 'rgba(245,158,11,0.4)'));
 }
 
 // ═══════════════ AUTO-LOGIN ON PAGE LOAD ═══════════════

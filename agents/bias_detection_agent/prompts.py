@@ -245,11 +245,25 @@ OUTPUT — Return ONLY this exact JSON structure (no markdown, no extra text):
     "transparency": "<Compliant | Partially Compliant | Non-Compliant> — <1 sentence reason>",
     "overall_shrm_verdict": "Fully Compliant | Partially Compliant | Non-Compliant"
   }},
-  "visualisation_data": {{
-    "x_column": "<Name of the X-axis, e.g., 'Metrics'>",
-    "y_column": "<Name of the Y-axis, e.g., 'Scores'>",
-    "x_values": ["<list of 5-8 key metric names evaluated>"],
-    "y_values": ["<list of corresponding integer scores for those metrics>"]
+  "graph_data": {{
+    "bot_metrics": {{
+      "x_column": "<Name of the X-axis, e.g., 'Bot Performance'>",
+      "y_column": "<Name of the Y-axis, e.g., 'Score'>",
+      "x_values": ["<list of bot metric names evaluated>"],
+      "y_values": ["<list of corresponding integer scores>"]
+    }},
+    "candidate_metrics": {{
+      "x_column": "<Name of the X-axis, e.g., 'Candidate Performance'>",
+      "y_column": "<Name of the Y-axis, e.g., 'Score'>",
+      "x_values": ["<list of candidate metric names evaluated>"],
+      "y_values": ["<list of corresponding integer scores>"]
+    }},
+    "system_evaluation": {{
+      "x_column": "<Name of the X-axis, e.g., 'System Metrics'>",
+      "y_column": "<Name of the Y-axis, e.g., 'Score'>",
+      "x_values": ["<list of system metric names evaluated>"],
+      "y_values": ["<list of corresponding integer scores>"]
+    }}
   }},
   "overall_analysis": "<3-5 sentence holistic summary covering bot, candidate, system, and SHRM compliance>"
 }}

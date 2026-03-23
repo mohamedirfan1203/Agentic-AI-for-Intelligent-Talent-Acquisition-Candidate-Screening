@@ -170,9 +170,17 @@ class ExtractionAgent:
 
     def _save_resume_to_db(self, extracted: dict, filename: str, db: Session, context: dict) -> dict:
         """Persist extracted resume → Candidate table. Populates context."""
+        # Extract name - prioritize top-level 'name', fallback to 'full_name', then 'Unknown'
+        candidate_name = extracted.get("name") or extracted.get("full_name", "Unknown")
+        
+        # Extract email - check top-level first, then nested contact_information
+        candidate_email = extracted.get("email")
+        if not candidate_email and isinstance(extracted.get("contact_information"), dict):
+            candidate_email = extracted.get("contact_information", {}).get("email")
+        
         candidate = Candidate(
-            name=extracted.get("name") or extracted.get("full_name", "Unknown"),
-            email=extracted.get("email"),
+            name=candidate_name,
+            email=candidate_email,
             phone=extracted.get("phone"),
             source_filename=filename,
             extracted_resume_json=extracted,

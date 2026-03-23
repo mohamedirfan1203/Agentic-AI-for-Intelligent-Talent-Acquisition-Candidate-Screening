@@ -305,27 +305,84 @@
           <div id="candidate-vis-panel" class="glass-card" style="display:none;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
               <h2>📈 <span id="vis-candidate-name">Candidate</span>'s Interview AI Evaluation</h2>
-              <button class="btn btn-success btn-sm" id="download-report-btn" style="display:none;">
-                📥 Download Final Report
-              </button>
             </div>
             
             <div style="margin-bottom: 16px;">
               <div class="score-status pass" id="vis-report-badge" style="display:none; margin-bottom: 15px;">
-                📧 Final Evaluation Report Generated and Emailed!
+                📧 Final Evaluation Report Generated and Emailed to HR!
               </div>
             </div>
 
-            <div class="vis-charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+            <div class="vis-charts-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
               <div class="vis-chart-box" style="background: var(--bg-surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
-                <h3 style="font-size:0.9rem; margin-bottom:12px; text-align:center;">Bot Metrics</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h3 style="font-size:0.9rem; margin:0;">Bot Metrics</h3>
+                  <select class="chart-type-select" onchange="updateChartType('bot', this.value)" style="font-size:0.8rem; padding:2px; border-radius:4px; max-width:90px; background:var(--bg-surface-3); color:var(--text-1); border:1px solid var(--border);">
+                    <option value="bar" selected>Bar</option>
+                    <option value="pie">Pie</option>
+                    <option value="line">Line</option>
+                    <option value="radar">Radar</option>
+                    <option value="polarArea">Polar</option>
+                    <option value="doughnut">Donut</option>
+                  </select>
+                </div>
                 <canvas id="botMetricsChart"></canvas>
               </div>
               <div class="vis-chart-box" style="background: var(--bg-surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
-                <h3 style="font-size:0.9rem; margin-bottom:12px; text-align:center;">Candidate Metrics</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h3 style="font-size:0.9rem; margin:0;">Candidate Metrics</h3>
+                  <select class="chart-type-select" onchange="updateChartType('cand', this.value)" style="font-size:0.8rem; padding:2px; border-radius:4px; max-width:90px; background:var(--bg-surface-3); color:var(--text-1); border:1px solid var(--border);">
+                    <option value="bar">Bar</option>
+                    <option value="pie" selected>Pie</option>
+                    <option value="line">Line</option>
+                    <option value="radar">Radar</option>
+                    <option value="polarArea">Polar</option>
+                    <option value="doughnut">Donut</option>
+                  </select>
+                </div>
                 <canvas id="candidateMetricsChart"></canvas>
               </div>
+              <div class="vis-chart-box" style="background: var(--bg-surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h3 style="font-size:0.9rem; margin:0;">System Evaluation</h3>
+                  <select class="chart-type-select" onchange="updateChartType('sys', this.value)" style="font-size:0.8rem; padding:2px; border-radius:4px; max-width:90px; background:var(--bg-surface-3); color:var(--text-1); border:1px solid var(--border);">
+                    <option value="bar">Bar</option>
+                    <option value="pie">Pie</option>
+                    <option value="line" selected>Line</option>
+                    <option value="radar">Radar</option>
+                    <option value="polarArea">Polar</option>
+                    <option value="doughnut">Donut</option>
+                  </select>
+                </div>
+                <canvas id="systemMetricsChart"></canvas>
+              </div>
             </div>
+
+            <!-- Full Report UI -->
+            <div id="vis-full-report-content" style="margin-top: 30px; display: none;">
+              <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px;">📄 Final AI Evaluation Report</h3>
+              
+              <div style="background: var(--bg-surface-2); padding: 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid var(--primary);">
+                <h4 style="margin-top:0; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                  📋 Executive Summary
+                </h4>
+                <p id="vis-overall-summary" style="font-size: 0.95rem; line-height: 1.5; color: var(--text-2);"></p>
+              </div>
+
+              <div style="background: var(--bg-surface-2); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                <h4 style="margin-top:0; margin-bottom:12px;">⚖️ SHRM Compliance Summary</h4>
+                <div id="vis-shrm-summary" style="font-size: 0.9rem;">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+
+              <div id="vis-bias-warnings" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top:0; margin-bottom:12px; color: var(--red);">⚠️ Compliance Risks & Bias Flags Confirmed</h4>
+                <ul id="vis-bias-warnings-list" style="margin: 0; padding-left: 20px; color: var(--text-2); font-size: 0.9rem;">
+                </ul>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -335,41 +392,8 @@
 
   <!-- ═══════════════ CANDIDATE DASHBOARD ═══════════════ -->
   <div id="candidate-dashboard" class="dashboard" style="display:none;">
-    <!-- Sidebar - Chat History -->
-    <aside class="sidebar candidate-sidebar" id="candidate-sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logo">
-          <span class="sidebar-logo-icon">🤖</span>
-          <span class="sidebar-logo-text">HR-Bot</span>
-        </div>
-      </div>
-
-      <div class="chat-history-header">
-        <h3>💬 Chat History</h3>
-        <button class="btn btn-ghost btn-sm" onclick="loadChatHistory()" title="Refresh">🔄</button>
-      </div>
-
-      <div class="chat-history-list" id="chat-history-list">
-        <div class="chat-history-empty">
-          <span>No chat history yet</span>
-          <p>Start an interview to see your history here.</p>
-        </div>
-      </div>
-
-      <div class="sidebar-footer">
-        <div class="user-card">
-          <div class="user-avatar candidate-avatar" id="cand-avatar">C</div>
-          <div class="user-info">
-            <span class="user-name" id="cand-name-display">Candidate</span>
-            <span class="user-role">Candidate</span>
-          </div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 Logout</button>
-      </div>
-    </aside>
-
-    <!-- Chatbot Interface -->
-    <main class="main-content candidate-main">
+    <!-- Chatbot Interface (Full Width - No Sidebar) -->
+    <main class="main-content candidate-main" style="margin-left: 0; width: 100%;">
       <div class="chat-container">
         <!-- Chat Header -->
         <div class="chat-header">
@@ -381,6 +405,14 @@
             </div>
           </div>
           <div class="chat-header-right">
+            <div class="user-card" style="margin-right: 16px;">
+              <div class="user-avatar candidate-avatar" id="cand-avatar">C</div>
+              <div class="user-info">
+                <span class="user-name" id="cand-name-display">Candidate</span>
+                <span class="user-role">Candidate</span>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="logout()" style="margin-right: 8px;">🚪 Logout</button>
             <span class="status-pill pill-idle" id="cand-status-pill">Idle</span>
           </div>
         </div>
