@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HR-Bot Portal</title>
+  <meta name="description" content="HR-Bot AI-powered recruitment and interview portal for HR professionals and candidates."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/portal/styles.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- ═══════════════ AUTH SCREENS ═══════════════ -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-bg-orbs">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+
+    <div class="auth-container">
+      <!-- Logo -->
+      <div class="auth-logo">
+        <div class="auth-logo-icon">🤖</div>
+        <h1>HR-Bot</h1>
+        <p>AI-Powered Recruitment Portal</p>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Login</button>
+        <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password"/>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+          <span>Login</span>
+          <span class="btn-loader" style="display:none;">⏳</span>
+        </button>
+        <div id="login-error" class="auth-error"></div>
+      </form>
+
+      <!-- Sign Up Form -->
+      <form id="signup-form" class="auth-form" style="display:none;" onsubmit="handleSignup(event)">
+        <div class="form-group">
+          <label for="signup-name">Full Name</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="signup-name" placeholder="Enter your full name" required/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="signup-email">Email</label>
+          <div class="input-wrapper">
+            <span class="input-icon">📧</span>
+            <input type="email" id="signup-email" placeholder="Enter your email" required/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="signup-password">Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="signup-password" placeholder="Create a password" required minlength="4"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="signup-age">Age</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🎂</span>
+              <input type="number" id="signup-age" placeholder="Age" min="18" max="100" required/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="signup-role">Role</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🏷️</span>
+              <select id="signup-role" required>
+                <option value="hr">HR</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="signup-btn">
+          <span>Create Account</span>
+          <span class="btn-loader" style="display:none;">⏳</span>
+        </button>
+        <div id="signup-error" class="auth-error"></div>
+        <div id="signup-success" class="auth-success"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════ HR DASHBOARD ═══════════════ -->
+  <div id="hr-dashboard" class="dashboard" style="display:none;">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="sidebar-logo-icon">🤖</span>
+          <span class="sidebar-logo-text">HR-Bot</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" id="nav-dashboard" onclick="switchHRTab('dashboard')">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" id="nav-screening" onclick="switchHRTab('screening')">
+          <span class="nav-icon">📄</span>
+          <span class="nav-label">Resume Screening</span>
+        </button>
+        <button class="nav-item" id="nav-candidates" onclick="switchHRTab('candidates')">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Candidates</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar" id="hr-avatar">HR</div>
+          <div class="user-info">
+            <span class="user-name" id="hr-name">HR User</span>
+            <span class="user-role">Human Resources</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Dashboard / Welcome Tab -->
+      <section id="tab-content-dashboard" class="tab-content active">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Welcome to <span class="gradient-text">HR-Bot Portal</span></h1>
+            <p class="page-subtitle" id="welcome-msg">Hello! Let's streamline your hiring process.</p>
+          </div>
+          <div class="header-actions">
+            <span class="live-time" id="live-time"></span>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #6c63ff, #a78bfa);">📄</div>
+            <div class="stat-info">
+              <span class="stat-label">Resume Screening</span>
+              <span class="stat-value">Upload & Score</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #34d399, #059669);">🤖</div>
+            <div class="stat-info">
+              <span class="stat-label">AI Interview</span>
+              <span class="stat-value">Automated Q&A</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">📊</div>
+            <div class="stat-info">
+              <span class="stat-label">Bias Detection</span>
+              <span class="stat-value">Fair Evaluation</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #ec4899, #be185d);">📧</div>
+            <div class="stat-info">
+              <span class="stat-label">Auto Notifications</span>
+              <span class="stat-value">Email Alerts</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h2>🚀 Quick Start Guide</h2>
+          <div class="steps-list">
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div>
+                <h3>Upload Resume & JD</h3>
+                <p>Go to <strong>Resume Screening</strong> tab and upload a candidate's resume along with the job description.</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div>
+                <h3>Generate Score</h3>
+                <p>Click "Generate Score" to let AI analyze the resume against the job requirements.</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">3</div>
+              <div>
+                <h3>Shortlist & Interview</h3>
+                <p>Qualified candidates automatically receive interview credentials via email.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resume Screening Tab -->
+      <section id="tab-content-screening" class="tab-content" style="display:none;">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">📄 Resume <span class="gradient-text">Screening</span></h1>
+            <p class="page-subtitle">Upload a resume and job description to generate an AI screening score.</p>
+          </div>
+        </div>
+
+        <div class="screening-layout">
+          <!-- Upload Panel -->
+          <div class="upload-panel glass-card">
+            <h2>Upload Documents</h2>
+            <p class="upload-desc">Select the candidate's resume and the job description file.</p>
+
+            <div class="file-upload-area" id="resume-drop-zone">
+              <div class="upload-icon">📃</div>
+              <h3>Candidate Resume</h3>
+              <p>PDF, DOCX, or TXT</p>
+              <input type="file" id="resume-file" accept=".pdf,.docx,.txt,.doc" onchange="handleFileSelect('resume')"/>
+              <label for="resume-file" class="file-label">Choose File</label>
+              <div class="file-selected" id="resume-file-name"></div>
+            </div>
+
+            <div class="file-upload-area" id="jd-drop-zone">
+              <div class="upload-icon">📋</div>
+              <h3>Job Description</h3>
+              <p>PDF, DOCX, or TXT</p>
+              <input type="file" id="jd-file" accept=".pdf,.docx,.txt,.doc" onchange="handleFileSelect('jd')"/>
+              <label for="jd-file" class="file-label">Choose File</label>
+              <div class="file-selected" id="jd-file-name"></div>
+            </div>
+
+            <button class="btn btn-primary btn-full btn-lg" id="generate-score-btn" onclick="generateScore()" disabled>
+              <span id="generate-btn-text">⚡ Generate Score</span>
+              <span id="generate-btn-loader" style="display:none;">
+                <span class="spinner"></span> Processing...
+              </span>
+            </button>
+          </div>
+
+          <!-- Results Panel -->
+          <div class="results-panel glass-card" id="results-panel" style="display:none;">
+            <h2>📊 Screening Results</h2>
+            <div id="results-content"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Candidates Tab -->
+      <section id="tab-content-candidates" class="tab-content" style="display:none;">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">👥 <span class="gradient-text">Candidates</span></h1>
+            <p class="page-subtitle">Track candidate screening statuses, interview progress, and generate final reports.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="loadCandidatesList()">
+              🔄 Refresh List
+            </button>
+          </div>
+        </div>
+        
+        <div class="candidates-layout">
+          <div class="glass-card" style="margin-bottom: 24px;">
+            <div class="candidates-table-wrapper" style="overflow-x: auto;">
+              <table class="candidates-table" id="candidates-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Screening Score</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="candidates-table-body">
+                  <tr><td colspan="6" style="text-align: center; padding: 20px;">Loading candidates...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Evaluation Report & Visualisation Area -->
+          <div id="candidate-vis-panel" class="glass-card" style="display:none;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+              <h2>📈 <span id="vis-candidate-name">Candidate</span>'s Interview AI Evaluation</h2>
+              <button class="btn btn-success btn-sm" id="download-report-btn" style="display:none;">
+                📥 Download Final Report
+              </button>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <div class="score-status pass" id="vis-report-badge" style="display:none; margin-bottom: 15px;">
+                📧 Final Evaluation Report Generated and Emailed!
+              </div>
+            </div>
+
+            <div class="vis-charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+              <div class="vis-chart-box" style="background: var(--bg-surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+                <h3 style="font-size:0.9rem; margin-bottom:12px; text-align:center;">Bot Metrics</h3>
+                <canvas id="botMetricsChart"></canvas>
+              </div>
+              <div class="vis-chart-box" style="background: var(--bg-surface-2); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+                <h3 style="font-size:0.9rem; margin-bottom:12px; text-align:center;">Candidate Metrics</h3>
+                <canvas id="candidateMetricsChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ═══════════════ CANDIDATE DASHBOARD ═══════════════ -->
+  <div id="candidate-dashboard" class="dashboard" style="display:none;">
+    <!-- Sidebar - Chat History -->
+    <aside class="sidebar candidate-sidebar" id="candidate-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="sidebar-logo-icon">🤖</span>
+          <span class="sidebar-logo-text">HR-Bot</span>
+        </div>
+      </div>
+
+      <div class="chat-history-header">
+        <h3>💬 Chat History</h3>
+        <button class="btn btn-ghost btn-sm" onclick="loadChatHistory()" title="Refresh">🔄</button>
+      </div>
+
+      <div class="chat-history-list" id="chat-history-list">
+        <div class="chat-history-empty">
+          <span>No chat history yet</span>
+          <p>Start an interview to see your history here.</p>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar candidate-avatar" id="cand-avatar">C</div>
+          <div class="user-info">
+            <span class="user-name" id="cand-name-display">Candidate</span>
+            <span class="user-role">Candidate</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <!-- Chatbot Interface -->
+    <main class="main-content candidate-main">
+      <div class="chat-container">
+        <!-- Chat Header -->
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <div class="bot-avatar-header">🤖</div>
+            <div>
+              <h2>HR-Bot Interview</h2>
+              <p class="chat-status" id="chat-status">Ready to start</p>
+            </div>
+          </div>
+          <div class="chat-header-right">
+            <span class="status-pill pill-idle" id="cand-status-pill">Idle</span>
+          </div>
+        </div>
+
+        <!-- Chat Setup (before interview starts) -->
+        <div id="cand-setup" class="cand-setup">
+          <div class="cand-setup-box">
+            <h2>🚀 Start Your Interview</h2>
+            <p>Click the button below to begin your AI-powered interview. Your responses will be analyzed in real-time.</p>
+            <button class="btn btn-primary btn-lg" id="start-interview-btn" onclick="startCandidateInterview()">
+              ▶ Start Interview
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Messages -->
+        <div id="cand-messages" class="chat-messages" style="display:none;"></div>
+
+        <!-- Chat Input -->
+        <div id="cand-input-area" class="chat-input-area" style="display:none;">
+          <button id="cand-mic-btn" class="btn btn-mic" onclick="toggleVoiceBot()" title="Start Voice Bot">🎙️</button>
+          <textarea id="cand-answer-input" rows="2"
+            placeholder="Type your answer here… (Shift+Enter for new line, Enter to send)"
+            onkeydown="handleCandidateKey(event)"
+            disabled></textarea>
+          <button class="btn btn-primary" id="cand-send-btn" onclick="sendCandidateAnswer()" disabled>
+            Send ➤
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/portal/app.js"></script>
+</body>
+</html>

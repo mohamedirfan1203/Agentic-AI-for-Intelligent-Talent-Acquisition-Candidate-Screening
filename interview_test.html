@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HR-Bot · Interview Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f1a;
+      --surface: #13172b;
+      --surface2: #1a1f38;
+      --border: rgba(255,255,255,0.07);
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --bot-bubble: #1e2340;
+      --user-bubble: linear-gradient(135deg, #6c63ff, #a78bfa);
+      --radius: 18px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 30%, rgba(108,99,255,.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 70%, rgba(167,139,250,.10) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 780px;
+      display: flex; flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 20px 26px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+    }
+    .header-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      background: var(--user-bubble);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+      box-shadow: 0 4px 20px rgba(108,99,255,.4);
+    }
+    .header-text h1 { font-size: 1.15rem; font-weight: 700; }
+    .header-text p  { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .status-pill {
+      margin-left: auto;
+      padding: 5px 14px; border-radius: 999px; font-size: .72rem;
+      font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+      border: 1px solid;
+    }
+    .pill-idle          { background: rgba(100,116,139,.15); color: var(--muted);   border-color: var(--muted); }
+    .pill-greeting      { background: rgba(251,191,36,.12);  color: var(--yellow);  border-color: var(--yellow); }
+    .pill-active        { background: rgba(52,211,153,.12);  color: var(--green);   border-color: var(--green); }
+    .pill-post          { background: rgba(108,99,255,.15);  color: var(--accent);  border-color: var(--accent); }
+    .pill-done          { background: rgba(167,139,250,.12); color: var(--accent2); border-color: var(--accent2); }
+    .pill-voice         { background: rgba(248,113,113,.12); color: var(--red);     border-color: var(--red);    animation: vpulse 2s infinite; }
+    @keyframes vpulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+    /* ── Mode toggle ── */
+    .mode-toggle {
+      display: flex;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+      width: fit-content;
+      margin-bottom: 18px;
+    }
+    .mode-btn {
+      padding: 8px 20px;
+      border-radius: 9px;
+      border: none;
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      color: var(--muted);
+      background: transparent;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .mode-btn.active {
+      background: var(--user-bubble);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(108,99,255,.4);
+    }
+
+    /* ── Setup panel ── */
+    #setup-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 30px;
+    }
+    #setup-panel h2 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; }
+    #setup-panel p  { font-size: .82rem; color: var(--muted); margin-bottom: 20px; }
+
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
+    .form-group label { font-size: .75rem; font-weight: 600; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+    .form-group input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit; font-size: .88rem;
+      padding: 11px 14px; outline: none; transition: border .2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+    .form-group input::placeholder { color: var(--muted); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 11px 24px; border-radius: 12px; border: none;
+      font-family: inherit; font-size: .88rem; font-weight: 600;
+      cursor: pointer; transition: all .2s; display: inline-flex;
+      align-items: center; gap: 8px; white-space: nowrap;
+    }
+    .btn-primary { background: var(--user-bubble); color: #fff; box-shadow: 0 4px 18px rgba(108,99,255,.35); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(108,99,255,.5); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-danger  { background: linear-gradient(135deg,#ef4444,#b91c1c); color: #fff; box-shadow: 0 4px 18px rgba(239,68,68,.3); }
+    .btn-danger:hover { transform: translateY(-1px); }
+    .btn-ghost   { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── Chat window ── */
+    #chat-panel { display: none; flex-direction: column; gap: 16px; }
+
+    .chat-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      font-size: .8rem;
+    }
+    .chat-meta .name { font-weight: 600; }
+    .chat-meta .qpill {
+      background: rgba(108,99,255,.15); color: var(--accent2);
+      padding: 4px 12px; border-radius: 999px; font-weight: 600;
+      font-size: .75rem; letter-spacing: .03em;
+    }
+    .mode-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 999px; font-size: .7rem; font-weight: 600;
+    }
+    .mode-badge.text  { background: rgba(108,99,255,.15); color: var(--accent2); border: 1px solid rgba(108,99,255,.3); }
+    .mode-badge.voice { background: rgba(248,113,113,.12); color: var(--red);     border: 1px solid rgba(248,113,113,.3); }
+
+    .progress-bar-wrap { height: 4px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 999px; background: var(--user-bubble); transition: width .5s ease; }
+
+    /* ── Messages ── */
+    #messages {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      min-height: 380px; max-height: 460px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
+      scroll-behavior: smooth;
+    }
+    #messages::-webkit-scrollbar { width: 5px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+    .msg { display: flex; flex-direction: column; max-width: 80%; animation: fadeUp .3s ease; }
+    .msg.bot  { align-self: flex-start; }
+    .msg.user { align-self: flex-end; }
+    .msg.event-msg { align-self: center; max-width: 100%; }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+    .msg-label { font-size: .68rem; color: var(--muted); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 5px; padding: 0 4px; }
+    .msg.bot .msg-label  { align-self: flex-start; }
+    .msg.user .msg-label { align-self: flex-end; }
+
+    .bubble { padding: 13px 17px; border-radius: 16px; font-size: .88rem; line-height: 1.6; word-break: break-word; }
+    .msg.bot  .bubble { background: var(--bot-bubble); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .msg.user .bubble { background: var(--user-bubble); color: #fff; border-bottom-right-radius: 4px; }
+    .event-bubble { font-size: .75rem; color: var(--muted); background: rgba(255,255,255,.04); border: 1px dashed var(--border); border-radius: 999px; padding: 3px 14px; }
+
+    .msg-time { font-size: .65rem; color: var(--muted); margin-top: 4px; padding: 0 4px; }
+    .msg.user .msg-time { align-self: flex-end; }
+
+    .q-badge { display: inline-block; background: rgba(108,99,255,.2); color: var(--accent2); border-radius: 6px; font-size: .7rem; font-weight: 700; padding: 2px 7px; margin-bottom: 6px; }
+
+    /* ── Text input area ── */
+    #input-area {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+    #answer-input {
+      flex: 1;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text);
+      font-family: inherit; font-size: .88rem;
+      padding: 12px 15px; outline: none; resize: none;
+      min-height: 50px; max-height: 140px;
+      transition: border .2s; line-height: 1.5;
+    }
+    #answer-input:focus { border-color: var(--accent); }
+    #answer-input::placeholder { color: var(--muted); }
+    #answer-input:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Voice control area ── */
+    #voice-area {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .voice-controls { display: flex; align-items: center; gap: 20px; width: 100%; }
+
+    #mic-btn {
+      width: 64px; height: 64px;
+      border-radius: 50%; border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), #5b21b6);
+      box-shadow: 0 4px 20px rgba(108,99,255,.4);
+      transition: transform .15s, box-shadow .15s, background .3s;
+    }
+    #mic-btn:hover { transform: scale(1.07); }
+    #mic-btn:active { transform: scale(.96); }
+    #mic-btn.live {
+      background: linear-gradient(135deg, var(--red), #7f1d1d);
+      box-shadow: 0 4px 20px rgba(248,113,113,.45);
+      animation: micPulse 1.2s infinite;
+    }
+    @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)} 50%{box-shadow:0 0 0 14px rgba(248,113,113,0)} }
+
+    .voice-side { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .voice-side label { font-size: .75rem; color: var(--muted); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+    .vol-wrap { background: rgba(255,255,255,.06); border-radius: 4px; height: 6px; overflow: hidden; }
+    #vol-bar  { height: 100%; width: 0%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 4px; transition: width .06s; }
+    #voice-hint { font-size: .78rem; color: var(--muted); }
+    #voice-hint span { color: var(--text); font-weight: 500; }
+
+    /* ── Typing indicator ── */
+    .typing { display: flex; align-items: center; gap: 5px; padding: 4px 0; }
+    .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent2); animation: bounce .9s infinite; }
+    .typing span:nth-child(2) { animation-delay: .15s; }
+    .typing span:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+    /* ── History panel ── */
+    #history-panel { display:none; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; }
+    #history-panel h3 { font-size:.95rem; font-weight:700; margin-bottom:16px; }
+    .history-section-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin:16px 0 8px; }
+    .history-item { border-left:3px solid var(--accent); padding:10px 16px; margin-bottom:10px; background:var(--surface2); border-radius:0 10px 10px 0; font-size:.83rem; }
+    .history-item.hr-turn { border-left-color:var(--green); }
+    .history-item .hq { color:var(--accent2); font-weight:600; margin-bottom:6px; }
+    .history-item.hr-turn .hq { color:var(--green); }
+    .history-item .ha { color:var(--text); line-height:1.6; }
+    .history-item .ht { color:var(--muted); font-size:.7rem; margin-top:6px; }
+
+    /* ── Toast ── */
+    #toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(100px); background:rgba(248,113,113,.15); border:1px solid var(--red); color:var(--red); padding:12px 22px; border-radius:12px; font-size:.84rem; font-weight:500; transition:transform .3s; z-index:999; }
+    #toast.show { transform:translateX(-50%) translateY(0); }
+
+    /* ── Done banner ── */
+    .done-banner { text-align:center; padding:22px; background:rgba(52,211,153,.08); border:1px solid rgba(52,211,153,.2); border-radius:14px; color:var(--green); }
+    .done-banner .done-icon { font-size:2rem; margin-bottom:8px; }
+    .done-banner p { font-size:.88rem; opacity:.85; line-height:1.7; }
+
+    @media (max-width:520px) { .form-row{flex-direction:column} .msg{max-width:95%} }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🤖</div>
+    <div class="header-text">
+      <h1>HR-Bot Interview Assistant</h1>
+      <p>AI-powered candidate screening interview</p>
+    </div>
+    <div class="status-pill pill-idle" id="status-pill">Idle</div>
+  </div>
+
+  <!-- Setup Panel -->
+  <div id="setup-panel">
+    <h2>Start Interview Session</h2>
+    <p>Enter a candidate ID and choose your preferred interview mode.</p>
+
+    <!-- Mode Toggle -->
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-text-btn" onclick="selectMode('text')">💬 Text Chat</button>
+      <button class="mode-btn" id="mode-voice-btn" onclick="selectMode('voice')">🎙 Voice</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Candidate ID</label>
+        <input type="number" id="candidate-id" placeholder="e.g. 1" min="1"/>
+      </div>
+      <div class="form-group" style="max-width:220px;">
+        <label>API Base URL</label>
+        <input type="text" id="api-url" value="http://localhost:8000" placeholder="http://localhost:8000"/>
+      </div>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="start-btn" onclick="startInterview()">
+        ▶ Start Interview
+      </button>
+    </div>
+  </div>
+
+  <!-- Chat Panel -->
+  <div id="chat-panel">
+
+    <!-- Session meta bar -->
+    <div class="chat-meta">
+      <span>
+        <span class="name" id="cand-name">Candidate</span>
+        &nbsp;·&nbsp; Session <span id="session-id-display">—</span>
+      </span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="mode-badge text" id="mode-badge">💬 Text</span>
+        <span class="qpill" id="q-counter">Q 0 / 10</span>
+      </span>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages"></div>
+
+    <!-- Text input (text mode) -->
+    <div id="input-area">
+      <textarea id="answer-input" rows="2"
+        placeholder="Type your answer here… (Shift+Enter for new line, Enter to send)"
+        onkeydown="handleKey(event)"
+        disabled></textarea>
+      <button class="btn btn-primary" id="send-btn" onclick="sendAnswer()" disabled>
+        Send ➤
+      </button>
+    </div>
+
+    <!-- Voice control (voice mode) -->
+    <div id="voice-area">
+      <div class="voice-controls">
+        <button id="mic-btn" onclick="toggleVoice()" title="Start / stop voice interview">🎙</button>
+        <div class="voice-side">
+          <label>Microphone level</label>
+          <div class="vol-wrap"><div id="vol-bar"></div></div>
+          <div id="voice-hint">Status: <span id="voice-state">idle — click mic to begin</span></div>
+        </div>
+        <button class="btn btn-danger" onclick="endVoiceSession()" id="end-voice-btn" style="display:none;">
+          ⏹ End Session
+        </button>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="loadHistory()">📄 View Full Transcript</button>
+      <button class="btn btn-ghost" onclick="resetApp()">🔄 New Interview</button>
+    </div>
+
+  </div>
+
+  <!-- History Panel -->
+  <div id="history-panel">
+    <h3>📋 Full Interview Transcript — <span id="hist-cand-name"></span></h3>
+    <div id="history-items"></div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   HR-Bot Interview Assistant
+   Supports: Text (REST) mode + Voice (WebSocket / Deepgram) mode
+═══════════════════════════════════════════════════════════════════════════ */
+
+const API = () => document.getElementById('api-url').value.replace(/\/$/, '');
+const WS  = () => API().replace(/^http/, 'ws');
+
+let sessionId     = null;
+let questionCount = 0;
+let interviewMode = 'text';   // 'text' | 'voice'
+const MAX_Q = 10;
+
+// ── Voice state ───────────────────────────────────────────────────────────
+let voiceWs        = null;
+let audioCtx       = null;
+let micStream      = null;
+let workletNode    = null;
+let volAnimFrame   = null;
+let nextPlayTime   = 0;
+let voiceActive    = false;
+
+// AudioWorklet inline processor
+const WORKLET_CODE = `
+class PCMProcessor extends AudioWorkletProcessor {
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (ch) {
+      const buf = new Int16Array(ch.length);
+      for (let i = 0; i < ch.length; i++) {
+        const s = Math.max(-1, Math.min(1, ch[i]));
+        buf[i] = s < 0 ? s * 32768 : s * 32767;
+      }
+      this.port.postMessage(buf.buffer, [buf.buffer]);
+    }
+    return true;
+  }
+}
+registerProcessor('pcm-processor', PCMProcessor);
+`;
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function ts() {
+  return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function setPill(state) {
+  const pill = document.getElementById('status-pill');
+  pill.className = 'status-pill';
+  const map = {
+    greeting:       ['pill-greeting', 'Greeting'],
+    active:         ['pill-active',   'Live'],
+    post_interview: ['pill-post',     'Q&A'],
+    completed:      ['pill-done',     'Completed'],
+    idle:           ['pill-idle',     'Idle'],
+    voice:          ['pill-voice',    '🔴 Recording'],
+  };
+  const [cls, label] = map[state] || map.idle;
+  pill.classList.add(cls);
+  pill.textContent = label;
+}
+
+function updateProgress(n) {
+  if (n == null || n < 0) return;
+  questionCount = n;
+  document.getElementById('q-counter').textContent = `Q ${n} / ${MAX_Q}`;
+  document.getElementById('progress-fill').style.width = `${Math.min((n / MAX_Q) * 100, 100)}%`;
+}
+
+function scrollToBottom() {
+  const m = document.getElementById('messages');
+  m.scrollTop = m.scrollHeight;
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function addBotMessage(text, qNum = null) {
+  if (!text) return;
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `
+    <div class="msg-label">🤖 HR-Bot</div>
+    ${qNum ? `<div class="q-badge">Question ${qNum}</div>` : ''}
+    <div class="bubble">${escapeHtml(text)}</div>
+    <div class="msg-time">${ts()}</div>
+  `;
+  msgs.appendChild(div);
+  scrollToBottom();
+}
+
+function addUserMessage(text) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `
+    <div class="msg-label">You</div>
+    <div class="bubble">${escapeHtml(text)}</div>
+    <div class="msg-time">${ts()}</div>
+  `;
+  msgs.appendChild(div);
+  scrollToBottom();
+}
+
+function addEventMsg(text) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg event-msg';
+  div.innerHTML = `<div class="event-bubble">${escapeHtml(text)}</div>`;
+  msgs.appendChild(div);
+  scrollToBottom();
+}
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot'; div.id = 'typing-bubble';
+  div.innerHTML = `
+    <div class="msg-label">🤖 HR-Bot</div>
+    <div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>
+  `;
+  msgs.appendChild(div);
+  scrollToBottom();
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-bubble');
+  if (t) t.remove();
+}
+
+function showDone(message) {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'done-banner';
+  div.innerHTML = `<div class="done-icon">🌟</div><p>${escapeHtml(message)}</p>`;
+  msgs.appendChild(div);
+  scrollToBottom();
+  setPill('completed');
+}
+
+function setInputEnabled(enabled, placeholder) {
+  const inp = document.getElementById('answer-input');
+  const btn = document.getElementById('send-btn');
+  inp.disabled = !enabled;
+  btn.disabled = !enabled;
+  if (placeholder) inp.placeholder = placeholder;
+  if (enabled && interviewMode === 'text') inp.focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnswer(); }
+}
+
+// ── Mode selection ────────────────────────────────────────────────────────
+
+function selectMode(mode) {
+  interviewMode = mode;
+  document.getElementById('mode-text-btn').classList.toggle('active', mode === 'text');
+  document.getElementById('mode-voice-btn').classList.toggle('active', mode === 'voice');
+  const btn = document.getElementById('start-btn');
+  btn.innerHTML = mode === 'voice' ? '🎙 Start Voice Interview' : '▶ Start Interview';
+}
+
+// ── Text interview ────────────────────────────────────────────────────────
+
+function handleBotResponse(data) {
+  const status = data.status;
+  const botMsg  = data.bot_message;
+  const qNum    = data.is_interview_question ? data.question_number : null;
+
+  if (data.is_interview_question && data.question_number > 0) updateProgress(data.question_number);
+  setPill(status);
+
+  if (status === 'completed') { showDone(botMsg); setTimeout(loadHistory, 800); return; }
+
+  addBotMessage(botMsg, qNum);
+
+  if (status === 'post_interview') {
+    setInputEnabled(true, 'Ask a question, or type "No more questions" to end…');
+  } else {
+    setInputEnabled(true, status === 'greeting'
+      ? 'Say hello to get started…'
+      : 'Type your answer… (Enter to send)');
+  }
+}
+
+async function startTextInterview(candidateId) {
+  const res = await fetch(`${API()}/interview/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ candidate_id: candidateId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Unknown error');
+
+  sessionId = data.session_id;
+  showChatPanel(data.candidate_name, candidateId, 'text');
+  addBotMessage(data.bot_message);
+  setInputEnabled(true, 'Say hello to get started…');
+  setPill('greeting');
+}
+
+async function sendAnswer() {
+  const input = document.getElementById('answer-input');
+  const answer = input.value.trim();
+  if (!answer || !sessionId) return;
+
+  setInputEnabled(false);
+  input.value = '';
+  addUserMessage(answer);
+  showTyping();
+
+  try {
+    const res = await fetch(`${API()}/interview/respond`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, answer }),
+    });
+    const data = await res.json();
+    removeTyping();
+    if (!res.ok) throw new Error(data.detail || 'Unknown error');
+    handleBotResponse(data);
+  } catch (err) {
+    removeTyping();
+    showToast(`❌ ${err.message}`);
+    setInputEnabled(true);
+  }
+}
+
+// ── Voice interview ───────────────────────────────────────────────────────
+
+async function startVoiceInterview(candidateId) {
+  // 1. Create the session via REST
+  const res = await fetch(`${API()}/voice-interview/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ candidate_id: candidateId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Unknown error');
+
+  sessionId = data.session_id;
+  showChatPanel(data.candidate_name, candidateId, 'voice');
+
+  addEventMsg('🎙 Voice session created — click the mic button below to begin');
+  document.getElementById('voice-state').textContent = 'ready — click mic to connect';
+}
+
+async function toggleVoice() {
+  if (voiceActive) {
+    stopVoice();
+  } else {
+    try {
+      await startVoice();
+    } catch (err) {
+      console.error('[Voice] startVoice() threw:', err);
+      showToast(`❌ Voice setup failed: ${err.message}`);
+      addEventMsg(`❌ Error: ${err.message}`);
+      document.getElementById('mic-btn').textContent = '🎙';
+      document.getElementById('voice-state').textContent = `error: ${err.message}`;
+      cleanupVoice();
+    }
+  }
+}
+
+function setVoiceStatus(msg) {
+  console.log('[Voice]', msg);
+  document.getElementById('voice-state').textContent = msg;
+}
+
+async function startVoice() {
+  const micBtn = document.getElementById('mic-btn');
+  micBtn.textContent = '⌛';
+  setVoiceStatus('requesting microphone…');
+
+  // ── Step 1: Microphone ────────────────────────────────────────────────
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { sampleRate: 48000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+  });
+  setVoiceStatus('mic granted — creating audio context…');
+
+  // ── Step 2: AudioContext ──────────────────────────────────────────────
+  audioCtx = new AudioContext({ sampleRate: 48000 });
+  await audioCtx.resume();
+  setVoiceStatus('audio context ready — loading worklet…');
+
+  // ── Step 3: AudioWorklet ──────────────────────────────────────────────
+  try {
+    const blob = new Blob([WORKLET_CODE], { type: 'application/javascript' });
+    const blobUrl = URL.createObjectURL(blob);
+    await audioCtx.audioWorklet.addModule(blobUrl);
+    setVoiceStatus('worklet loaded — setting up mic…');
+
+    const micSource = audioCtx.createMediaStreamSource(micStream);
+    workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor');
+    micSource.connect(workletNode);
+    startVolMeter(micSource);
+  } catch (workletErr) {
+    // AudioWorklet failed (e.g. sandboxing) — fall back to ScriptProcessor
+    console.warn('[Voice] AudioWorklet failed, falling back to ScriptProcessor:', workletErr);
+    setVoiceStatus('worklet unavailable — using fallback…');
+    _setupScriptProcessorFallback();
+  }
+
+  // ── Step 4: WebSocket ─────────────────────────────────────────────────
+  const wsUrl = `${WS()}/voice-interview/ws?session_id=${sessionId}`;
+  console.log('[Voice] Connecting WebSocket:', wsUrl);
+  setVoiceStatus(`connecting to server…`);
+  voiceWs = new WebSocket(wsUrl);
+  voiceWs.binaryType = 'arraybuffer';
+
+  voiceWs.onopen = () => {
+    voiceActive = true;
+    micBtn.textContent = '🔴';
+    micBtn.classList.add('live');
+    document.getElementById('end-voice-btn').style.display = 'inline-flex';
+    setVoiceStatus('connected — waiting for AI interviewer…');
+    setPill('voice');
+    addEventMsg('✅ Connected to server — AI interviewer will greet you shortly');
+    console.log('[Voice] WebSocket open — session', sessionId);
+
+    // Pipe worklet PCM to server
+    if (workletNode) {
+      workletNode.port.onmessage = (e) => {
+        if (voiceWs && voiceWs.readyState === WebSocket.OPEN) voiceWs.send(e.data);
+      };
+    }
+  };
+
+  voiceWs.onmessage = (e) => {
+    if (e.data instanceof ArrayBuffer) {
+      // TTS audio from Deepgram — play it
+      playPCMChunk(e.data);
+    } else {
+      // JSON events from Deepgram
+      try {
+        const evt = JSON.parse(e.data);
+        handleVoiceEvent(evt);
+      } catch { /* ignore non-JSON */ }
+    }
+  };
+
+  voiceWs.onclose = (e) => {
+    console.log('[Voice] WebSocket closed — code:', e.code, 'reason:', e.reason);
+    addEventMsg(`🔌 Voice session ended (code ${e.code})`);
+    setPill('completed');
+    cleanupVoice();
+    setTimeout(loadHistory, 1000);
+  };
+
+  voiceWs.onerror = (err) => {
+    console.error('[Voice] WebSocket error:', err);
+    showToast('❌ Voice WebSocket error — check server');
+    addEventMsg('❌ WebSocket connection error');
+    cleanupVoice();
+  };
+}
+
+// ScriptProcessor fallback (for when AudioWorklet blob URL is blocked)
+function _setupScriptProcessorFallback() {
+  try {
+    const micSource = audioCtx.createMediaStreamSource(micStream);
+    // ScriptProcessor is deprecated but widely supported as fallback
+    const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    processor.onaudioprocess = (e) => {
+      if (!voiceWs || voiceWs.readyState !== WebSocket.OPEN) return;
+      const float32 = e.inputBuffer.getChannelData(0);
+      const int16 = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]));
+        int16[i] = s < 0 ? s * 32768 : s * 32767;
+      }
+      voiceWs.send(int16.buffer);
+    };
+    micSource.connect(processor);
+    processor.connect(audioCtx.destination);
+    startVolMeter(micSource);
+    // Store reference for cleanup
+    workletNode = { port: { onmessage: null }, _processor: processor };
+    setVoiceStatus('fallback mic ready — connecting…');
+    console.log('[Voice] ScriptProcessor fallback active');
+  } catch (err) {
+    console.error('[Voice] ScriptProcessor fallback also failed:', err);
+    throw new Error(`Audio setup failed: ${err.message}`);
+  }
+}
+
+function handleVoiceEvent(evt) {
+  const type = evt.type || '';
+
+  if (type === 'ConversationText') {
+    const role = evt.role;
+    const content = (evt.content || '').trim();
+    if (!content) return;
+
+    if (role === 'assistant') {
+      addBotMessage(content);
+      setPill('active');
+    } else if (role === 'user') {
+      addUserMessage(content);
+    }
+    // Auto-increment progress when bot asks Q1, Q2… (rough count)
+    if (role === 'assistant') {
+      const newQ = Math.min(questionCount + 1, MAX_Q);
+      updateProgress(newQ);
+    }
+
+  } else if (type === 'UserStartedSpeaking') {
+    nextPlayTime = 0;   // interrupt bot audio playback
+    document.getElementById('voice-state').textContent = '🎙 listening…';
+
+  } else if (type === 'AgentStartedSpeaking') {
+    document.getElementById('voice-state').textContent = '🤖 agent speaking…';
+
+  } else if (type === 'AgentAudioDone') {
+    document.getElementById('voice-state').textContent = '✔ your turn — speak now';
+
+  } else if (type === 'SettingsApplied') {
+    addEventMsg('✅ Interview configured — AI interviewer is ready');
+    document.getElementById('voice-state').textContent = 'interview started';
+
+  } else if (evt.error) {
+    addEventMsg(`❌ ${evt.error}`);
+    showToast(`❌ ${evt.error}`);
+  }
+}
+
+function playPCMChunk(arrayBuffer) {
+  const int16 = new Int16Array(arrayBuffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+  const buf = audioCtx.createBuffer(1, float32.length, 24000);
+  buf.copyToChannel(float32, 0);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  if (nextPlayTime < now) nextPlayTime = now + 0.04;
+  src.start(nextPlayTime);
+  nextPlayTime += buf.duration;
+}
+
+function startVolMeter(source) {
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  function tick() {
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+    document.getElementById('vol-bar').style.width = Math.min(100, avg * 2) + '%';
+    volAnimFrame = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function stopVoice() {
+  if (voiceWs) { try { voiceWs.close(); } catch {} voiceWs = null; }
+  cleanupVoice();
+}
+
+function endVoiceSession() {
+  addEventMsg('⏹ Ending session…');
+  stopVoice();
+}
+
+function cleanupVoice() {
+  voiceActive = false;
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx)  { audioCtx.close(); audioCtx = null; }
+  if (volAnimFrame) { cancelAnimationFrame(volAnimFrame); volAnimFrame = null; }
+  nextPlayTime = 0;
+  document.getElementById('vol-bar').style.width = '0%';
+  document.getElementById('mic-btn').textContent = '🎙';
+  document.getElementById('mic-btn').classList.remove('live');
+  document.getElementById('end-voice-btn').style.display = 'none';
+  document.getElementById('voice-state').textContent = 'session ended';
+}
+
+// ── Unified start ─────────────────────────────────────────────────────────
+
+async function startInterview() {
+  const candidateId = parseInt(document.getElementById('candidate-id').value);
+  if (!candidateId || candidateId < 1) {
+    showToast('⚠ Please enter a valid Candidate ID.');
+    return;
+  }
+
+  const btn = document.getElementById('start-btn');
+  btn.disabled = true;
+  btn.textContent = interviewMode === 'voice' ? '🎙 Setting up…' : 'Connecting…';
+
+  try {
+    if (interviewMode === 'voice') {
+      await startVoiceInterview(candidateId);
+    } else {
+      await startTextInterview(candidateId);
+    }
+  } catch (err) {
+    showToast(`❌ ${err.message}`);
+    btn.disabled = false;
+    btn.innerHTML = interviewMode === 'voice' ? '🎙 Start Voice Interview' : '▶ Start Interview';
+  }
+}
+
+function showChatPanel(candidateName, candidateId, mode) {
+  document.getElementById('setup-panel').style.display = 'none';
+  const cp = document.getElementById('chat-panel');
+  cp.style.display = 'flex'; cp.style.flexDirection = 'column';
+
+  document.getElementById('cand-name').textContent = candidateName || `Candidate #${candidateId}`;
+  document.getElementById('session-id-display').textContent = `#${sessionId}`;
+  updateProgress(0);
+
+  // Show the correct badge + input area
+  const badge = document.getElementById('mode-badge');
+  if (mode === 'voice') {
+    badge.textContent = '🎙 Voice';
+    badge.className = 'mode-badge voice';
+    document.getElementById('input-area').style.display = 'none';
+    document.getElementById('voice-area').style.display  = 'flex';
+  } else {
+    badge.textContent = '💬 Text';
+    badge.className = 'mode-badge text';
+    document.getElementById('input-area').style.display = 'flex';
+    document.getElementById('voice-area').style.display  = 'none';
+  }
+}
+
+// ── History ───────────────────────────────────────────────────────────────
+
+async function loadHistory() {
+  if (!sessionId) { showToast('No active session.'); return; }
+
+  const panel = document.getElementById('history-panel');
+  const items = document.getElementById('history-items');
+  items.innerHTML = '<p style="color:var(--muted);font-size:.83rem;">Loading…</p>';
+  panel.style.display = 'block';
+
+  // Use the correct history endpoint based on mode
+  const endpoint = interviewMode === 'voice'
+    ? `${API()}/voice-interview/history/${sessionId}`
+    : `${API()}/interview/history/${sessionId}`;
+
+  try {
+    const res = await fetch(endpoint);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to load history');
+
+    document.getElementById('hist-cand-name').textContent = data.candidate_name || '';
+    items.innerHTML = '';
+
+    if (interviewMode === 'voice') {
+      // Voice transcript format
+      const transcript = data.transcript || [];
+      if (transcript.length > 0) {
+        const title = document.createElement('div');
+        title.className = 'history-section-title';
+        title.textContent = `🎙 Voice Interview Transcript (${transcript.length} turns)`;
+        items.appendChild(title);
+
+        transcript.forEach(h => {
+          const div = document.createElement('div');
+          div.className = 'history-item';
+          const time = h.timestamp ? new Date(h.timestamp).toLocaleString('en-IN') : '';
+          div.innerHTML = `
+            <div class="hq">🤖 Q${h.question_number}. ${escapeHtml(h.bot)}</div>
+            <div class="ha">${h.candidate ? escapeHtml(h.candidate) : '<em style="color:var(--muted)">No answer recorded yet</em>'}</div>
+            ${time ? `<div class="ht">⏱ ${time}</div>` : ''}
+          `;
+          items.appendChild(div);
+        });
+      } else {
+        items.innerHTML = '<p style="color:var(--muted);font-size:.83rem;">No transcript yet.</p>';
+      }
+
+    } else {
+      // Text interview format
+      const intHist = data.interview_history || [];
+      if (intHist.length > 0) {
+        const title = document.createElement('div');
+        title.className = 'history-section-title';
+        title.textContent = `🎯 Interview Questions (${intHist.length} / ${data.max_questions})`;
+        items.appendChild(title);
+
+        intHist.forEach(h => {
+          const div = document.createElement('div');
+          div.className = 'history-item';
+          const time = h.timestamp ? new Date(h.timestamp).toLocaleString('en-IN') : '';
+          div.innerHTML = `
+            <div class="hq">Q${h.question_number}. ${escapeHtml(h.question)}</div>
+            <div class="ha">${h.answer ? escapeHtml(h.answer) : '<em style="color:var(--muted)">Pending…</em>'}</div>
+            ${time ? `<div class="ht">⏱ ${time}</div>` : ''}
+          `;
+          items.appendChild(div);
+        });
+      }
+
+      const hrQna = data.post_interview_qna || [];
+      if (hrQna.length > 0) {
+        const title2 = document.createElement('div');
+        title2.className = 'history-section-title';
+        title2.textContent = `💼 Candidate Questions to HR (${hrQna.length})`;
+        items.appendChild(title2);
+
+        hrQna.forEach(h => {
+          const div = document.createElement('div');
+          div.className = 'history-item hr-turn';
+          const time = h.timestamp ? new Date(h.timestamp).toLocaleString('en-IN') : '';
+          div.innerHTML = `
+            <div class="hq">❓ ${escapeHtml(h.question)}</div>
+            <div class="ha">${h.answer ? escapeHtml(h.answer) : '<em style="color:var(--muted)">No reply yet</em>'}</div>
+            ${time ? `<div class="ht">⏱ ${time}</div>` : ''}
+          `;
+          items.appendChild(div);
+        });
+      }
+
+      if (intHist.length === 0 && hrQna.length === 0) {
+        items.innerHTML = '<p style="color:var(--muted);font-size:.83rem;">No messages yet.</p>';
+      }
+    }
+
+  } catch (err) {
+    items.innerHTML = `<p style="color:var(--red);font-size:.83rem;">Error: ${err.message}</p>`;
+  }
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────
+
+function resetApp() {
+  stopVoice();
+  sessionId = null; questionCount = 0;
+  document.getElementById('chat-panel').style.display = 'none';
+  document.getElementById('history-panel').style.display = 'none';
+  document.getElementById('setup-panel').style.display = 'block';
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('history-items').innerHTML = '';
+  document.getElementById('start-btn').disabled = false;
+  selectMode(interviewMode);
+  document.getElementById('candidate-id').value = '';
+  document.getElementById('answer-input').placeholder = 'Type your answer here…';
+  setPill('idle');
+  updateProgress(0);
+}
+</script>
+</body>
+</html>
